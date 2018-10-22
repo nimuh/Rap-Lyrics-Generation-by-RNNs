@@ -31,11 +31,11 @@ def search_by_artists(list_of_rappers, filename):
     for rapper in file_content:
         artist = api.search_artist(rapper, max_songs=20, get_full_song_info=False)
         for s in range(len(artist.songs)):
-            doc = clean_lyrics(artist.songs[s].lyrics)
+            doc = artist.songs[s].lyrics
             doc = doc.split('\n')
             for word in doc:
                 file.write(word+'\n')
     file.close()
 
 
-search_by_artists('test.txt', 'out.txt')
+search_by_artists('rappers.txt', 'out.txt')
