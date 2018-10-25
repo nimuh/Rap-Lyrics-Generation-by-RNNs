@@ -1,7 +1,6 @@
 import lyricsgenius as lg
 import string
 import keras
-import word2vec
 import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.utils import to_categorical
@@ -9,6 +8,9 @@ from keras.utils import to_categorical
 key = "h7teesaCKXvcUvK8yxFIN1cSBSGchQ6i0MVlwE8YORNByy7N5U19geJqnKXxjCa1"
 api = lg.Genius(key)
 
+"""
+clean_lyrics is used for removing tags from the lyrics.
+"""
 def clean_lyrics(doc):
     for word in doc:
         doc = doc.replace('[', '')
@@ -23,14 +25,24 @@ def clean_lyrics(doc):
         doc = doc.replace('Interlude', '')
     return doc
 
+"""
+convert takes the scraped lyrics and converts it into input and target
+data for recurrent neural network.
+"""
 def convert(lyrics):
+
+    # read scraped lyrics and split into lines
     file = open(lyrics, 'r')
     text = file.read()
     doc = text.split('\n')
+
+    # use tokenizer to get integer representation of lines of song
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(doc)
     sequences = tokenizer.texts_to_sequences(doc) # <---|
     sequences = np.array(sequences)
+
+    # split data into inputs and targets
     input_data = []
     targets = []
     for seq in range(len(sequences)):
@@ -46,13 +58,18 @@ def convert(lyrics):
 
     return input_data, targets, class_size
 
-def search_by_artists(list_of_rappers, filename):
+"""
+search_by_artists takes a list of rapper names and searches for
+songs by these artists and scrapes the lyrics of songs found. All lyrics
+are saved to one file.
+"""
+def search_by_artists(list_of_rappers, out_filename, nu_songs):
     with open(list_of_rappers) as f:
         file_content = f.readlines()
     file_content = [name.strip() for name in file_content]
-    file = open(filename, 'w')
+    file = open(out_filename, 'w')
     for rapper in file_content:
-        artist = api.search_artist(rapper, max_songs=1, get_full_song_info=False)
+        artist = api.search_artist(rapper, max_songs=nu_songs, get_full_song_info=False)
         for s in range(len(artist.songs)):
             doc = artist.songs[s].lyrics
             doc = clean_lyrics(doc)
@@ -62,9 +79,9 @@ def search_by_artists(list_of_rappers, filename):
     file.close()
 
 
-search_by_artists('test.txt', 'out.txt')
+search_by_artists('test.txt', 'out.txt', 1)
 X, y, class_size = convert('out.txt')
 print("INPUTS: ")
-print(np.array(X))
+print(X)
 print("TARGETS: ")
-print(np.array(y))
+print(y)
