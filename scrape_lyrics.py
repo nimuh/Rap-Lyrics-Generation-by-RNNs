@@ -1,9 +1,15 @@
 import lyricsgenius as lg
 import string
+import tensorflow as tf
 import keras
 import numpy as np
 from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, Flatten
+from keras.layers.embeddings import Embedding
+print(tf.__version__)  # for Python 3
 
 key = "h7teesaCKXvcUvK8yxFIN1cSBSGchQ6i0MVlwE8YORNByy7N5U19geJqnKXxjCa1"
 api = lg.Genius(key)
@@ -45,18 +51,23 @@ def convert(lyrics):
     # split data into inputs and targets
     input_data = []
     targets = []
+    max_length = 0
     for seq in range(len(sequences)):
         if len(sequences[seq]) == 0:
             continue
+        if len(sequences[seq][:-1]) > max_length:
+            max_length = len(sequences[seq][:-1])
         input_data.append(np.array(sequences[seq][:-1]))
         targets.append(np.array(sequences[seq][len(sequences[seq])-1]))
     class_size = len(tokenizer.word_index)+1
 
-    input_data = np.array(input_data)
+    # zero-pad input data so all inputs are of the same size
+    input_data = np.array(pad_sequences(input_data,
+                                        maxlen=max_length,
+                                        padding='post'))
     targets = np.array(targets)
     assert input_data.shape[0] == targets.shape[0]
-
-    return input_data, targets, class_size
+    return input_data, targets, max_length, class_size
 
 """
 search_by_artists takes a list of rapper names and searches for
@@ -78,10 +89,18 @@ def search_by_artists(list_of_rappers, out_filename, nu_songs):
                 file.write(word+'\n')
     file.close()
 
+def recurrent_nn(X, y, vocab_size, seq_length):
+    model = Sequential()
+    model.add(Embedding(vocab_size, 8, input_length=seq_length))
+    #model.add(LSTM(100))
+    #model.add(LSTM(100))
+    model.add(Dense(100, activation='relu'))
+    model.add(Dense(vocab_size, activation='softmax'))
+    print(model.summary())
+
 
 search_by_artists('test.txt', 'out.txt', 1)
-X, y, class_size = convert('out.txt')
-print("INPUTS: ")
-print(X)
-print("TARGETS: ")
-print(y)
+X, y, max_length, class_size = convert('out.txt')
+y = to_categorical(y, num_classes=class_size)
+print(class_size)
+recurrent_nn(X, y, class_size, max_length)
