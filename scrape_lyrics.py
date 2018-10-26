@@ -97,7 +97,7 @@ recurrent_nn defines the network architecture:
 """
 def recurrent_nn(vocab_size, seq_length):
     model = Sequential()
-    model.add(Embedding(vocab_size, 50, input_length=seq_length))
+    model.add(Embedding(vocab_size, 300, input_length=seq_length))
 
     ## Tensorflow version issue?
     model.add(LSTM(100, return_sequences=True))
@@ -123,3 +123,7 @@ search_by_artists('test.txt', 'out.txt', 1)
 X, y, max_length, class_size = convert('out.txt')
 y = to_categorical(y, num_classes=class_size)
 rnn = recurrent_nn(class_size, max_length)
+
+batch_size = 32
+epochs = 500
+train_model(rnn, X, y, batch_size, epochs)
