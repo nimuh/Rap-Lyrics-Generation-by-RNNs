@@ -9,7 +9,7 @@ from keras.utils import to_categorical
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Flatten
 from keras.layers.embeddings import Embedding
-print(tf.__version__)  # for Python 3
+print(tf.__version__)
 
 key = "h7teesaCKXvcUvK8yxFIN1cSBSGchQ6i0MVlwE8YORNByy7N5U19geJqnKXxjCa1"
 api = lg.Genius(key)
@@ -89,18 +89,37 @@ def search_by_artists(list_of_rappers, out_filename, nu_songs):
                 file.write(word+'\n')
     file.close()
 
-def recurrent_nn(X, y, vocab_size, seq_length):
+"""
+recurrent_nn defines the network architecture:
+1 Embedding layer
+2 LSTM layers
+2 Dense layers
+"""
+def recurrent_nn(vocab_size, seq_length):
     model = Sequential()
-    model.add(Embedding(vocab_size, 8, input_length=seq_length))
-    #model.add(LSTM(100))
-    #model.add(LSTM(100))
+    model.add(Embedding(vocab_size, 50, input_length=seq_length))
+
+    ## Tensorflow version issue?
+    model.add(LSTM(100, return_sequences=True))
+    model.add(LSTM(100))
+    ###
+
     model.add(Dense(100, activation='relu'))
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
+    return model
+
+"""
+train_model compiles and trains the rnn model obtained from recurrent_nn
+"""
+def train_model(nn, X, y, batch_size, epochs):
+    nn.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+    nn.fit(X, y, batch_size=batch_size, epochs=epochs)
 
 
 search_by_artists('test.txt', 'out.txt', 1)
 X, y, max_length, class_size = convert('out.txt')
 y = to_categorical(y, num_classes=class_size)
-print(class_size)
-recurrent_nn(X, y, class_size, max_length)
+rnn = recurrent_nn(class_size, max_length)
