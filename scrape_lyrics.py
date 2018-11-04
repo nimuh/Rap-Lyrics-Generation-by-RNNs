@@ -9,22 +9,23 @@ clean_lyrics is used for removing tags from the lyrics.
 """
 def clean_lyrics(doc):
     for word in doc:
-        doc.replace('?', '')
-        doc.replace('!', '')
+        doc = doc.replace('?', '')
+        doc = doc.replace('!', '')
         doc = doc.replace('[', '')
         doc = doc.replace(']', '')
         doc = doc.replace('(', '')
         doc = doc.replace(')', '')
-        doc = doc.replace('1', '')
-        doc = doc.replace('2', '')
-        doc = doc.replace('3', '')
+        #doc = doc.replace('1', '')
+        #doc = doc.replace('2', '')
+        #doc = doc.replace('3', '')
         doc = doc.replace('Verse', '')
         doc = doc.replace('Chorus', '')
         doc = doc.replace('Outro', '')
         doc = doc.replace('Intro', '')
         doc = doc.replace('Hook', '')
-        doc.replace('Bridge', '')
+        doc = doc.replace('Bridge', '')
         doc = doc.replace('Interlude', '')
+        #doc = doc.replace(' ', '')
     return doc
 
 
@@ -44,9 +45,11 @@ def search_by_artists(list_of_rappers, out_filename, nu_songs):
             doc = artist.songs[s].lyrics
             doc = clean_lyrics(doc)
             doc = doc.split('\n')
+            file.write('[START]' +'\n')
             for word in range(len(doc)):
-                file.write(doc[word]+ ' [END]' + '\n')
+                file.write(doc[word]+'\n')
+            file.write('[END]'+'\n')
     file.close()
 
 
-search_by_artists('test.txt', 'lyrics.txt', 1)
+search_by_artists('test.txt', 'lyrics.txt', 4)
