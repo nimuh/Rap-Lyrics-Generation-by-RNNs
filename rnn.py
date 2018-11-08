@@ -15,21 +15,22 @@ def categorical(targets, size, padding_length):
         song_outputs = pad_sequences(song_outputs.T, maxlen=padding_length, padding='post')
         song_outputs = song_outputs.T
         categorized.append(song_outputs)
-
     return np.asarray(categorized)
 
-def split_by_song(tokenized_lyrics):
+def split_by_song(tokenized_lyrics, number_of_songs):
     songs = []
     song_targets = []
     one_song = []
     one_song.append(tokenized_lyrics[0])
-
+    song_nu = 0
     for i in range(1, len(tokenized_lyrics)):
-        if tokenized_lyrics[i] == 'end':
+        if tokenized_lyrics[i] == 'endss':
             one_song.append(tokenized_lyrics[i])
             songs.append(one_song[:len(one_song)-1])
             song_targets.append(one_song[1:len(one_song)])
             one_song = []
+            song_nu += 1
+            if song_nu == number_of_songs: break
         else:
             one_song.append(tokenized_lyrics[i])
     return songs, song_targets
@@ -47,13 +48,14 @@ def convert_word2word(lyrics):
     # use tokenizer to get integer representation of words of song
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(doc)
-    input_data, targets = split_by_song(text_to_word_sequence(text))
+    input_data, targets = split_by_song(text_to_word_sequence(text), 4)
     inputs = []
     outputs = []
 
     max = 0
     for songs in input_data:
-        if len(songs) > max: max = len(songs)
+        if len(songs) > max: max = (len(songs)-1)
+
     for songs in input_data:
         song = [tokenizer.word_index[words] for words in songs]
         song = song[:len(song)-1]
@@ -69,7 +71,7 @@ def convert_word2word(lyrics):
     inputs = pad_sequences(inputs, maxlen=max, padding='post')
     inputs = inputs.reshape(inputs.shape[0], max, 1)
 
-    return inputs, outputs, class_size
+    return inputs, outputs, class_size, tokenizer.word_index
 
 
 """
@@ -80,8 +82,11 @@ recurrent_nn defines the network architecture:
 """
 def recurrent_nn(vocab_size, X):
     model = Sequential()
-    model.add(Masking(mask_value=0., input_shape=(X.shape[1], 1)))
+    model.add(Masking(mask_value=0, input_shape=(None, 1)))
     model.add(LSTM(200, return_sequences=True))
+    model.add(Dense(300, activation='tanh'))
+    #model.add(Dense(400, activation='relu'))
+    #model.add(Dense(350, activation='relu'))
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
     return model
@@ -95,13 +100,28 @@ def train_model(nn, X, y, batch_size, epochs):
                   metrics=['accuracy'])
     nn.fit(X, y, batch_size=batch_size, epochs=epochs)
 
+def generate(word_values, network, length):
+    keys = list(word_values.keys())
+    number_to_word = list(word_values.values())
+    rap = ['startss']
+    current_length = 0
+    while current_length < length:
+        current_rap = [word_values.get(key) for key in rap]
+        last_word = np.array(current_rap[-1]).reshape(1, 1, 1)
+        pred = network.predict(last_word)[0][0]
+        pred = pred.astype(float)
+        pred /= pred.sum()
+        word_number = np.argmax(np.random.multinomial(1, pred, size=1))+1
+        rap.append(keys[number_to_word.index(word_number)])
+        current_length += 1
+    return rap
 
-X, y, class_size = convert_word2word('lyrics.txt')
+X, y, class_size, word_dict = convert_word2word('lyrics.txt')
 X = np.asarray(X, dtype=object)
-print(X.shape)
-print(y.shape)
 rnn = recurrent_nn(class_size, X)
 
 batch_size = 1
-epochs = 300
+epochs = 150
 train_model(rnn, X, y, batch_size, epochs)
+
+print(generate(word_dict, rnn, 100))
