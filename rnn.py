@@ -1,11 +1,12 @@
 
 import keras
 import numpy as np
+from keras import optimizers
 from keras.preprocessing.text import Tokenizer, text_to_word_sequence
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense, Flatten, Input, Masking
+from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout
 from keras.layers.embeddings import Embedding
 
 def categorical(targets, size, padding_length):
@@ -17,7 +18,7 @@ def categorical(targets, size, padding_length):
         categorized.append(song_outputs)
     return np.asarray(categorized)
 
-def split_by_song(tokenized_lyrics, number_of_songs):
+def split_by_song(tokenized_lyrics):
     songs = []
     song_targets = []
     one_song = []
@@ -29,8 +30,9 @@ def split_by_song(tokenized_lyrics, number_of_songs):
             songs.append(one_song[:len(one_song)-1])
             song_targets.append(one_song[1:len(one_song)])
             one_song = []
-            song_nu += 1
-            if song_nu == number_of_songs: break
+            #song_nu += 1
+            #print("Song ", song_nu)
+            #if song_nu == number_of_songs: break
         else:
             one_song.append(tokenized_lyrics[i])
     return songs, song_targets
@@ -43,12 +45,13 @@ def convert_word2word(lyrics):
     # read scraped lyrics and split into lines
     file = open(lyrics, 'r')
     text = file.read()
+    #text = scrape_lyrics.clean_lyrics(text)
     doc = text.split('\n')
 
     # use tokenizer to get integer representation of words of song
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(doc)
-    input_data, targets = split_by_song(text_to_word_sequence(text), 4)
+    input_data, targets = split_by_song(text_to_word_sequence(text))
     inputs = []
     outputs = []
 
@@ -78,27 +81,27 @@ def convert_word2word(lyrics):
 recurrent_nn defines the network architecture:
 1 Masking layer (skips padded areas due to variable sequence lengths)
 1 LSTM layer
-1 Dense layer
+1 Dense layer (softmax output equal to number of unique words)
 """
 def recurrent_nn(vocab_size, X):
     model = Sequential()
-    model.add(Masking(mask_value=0, input_shape=(None, 1)))
+    model.add(Masking(mask_value=0., input_shape=(None, 1)))
     model.add(LSTM(200, return_sequences=True))
-    model.add(Dense(300, activation='tanh'))
-    #model.add(Dense(400, activation='relu'))
-    #model.add(Dense(350, activation='relu'))
+    model.add(Dropout(0.1))
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
     return model
 
 """
-train_model compiles and trains the rnn model obtained from recurrent_nn
+train_model compiles and trains the rnn model obtained from recurrent_nn. Uses
+RMSprop as optimizer.
 """
-def train_model(nn, X, y, batch_size, epochs):
+def train_model(nn, X, y, batch_size, epochs, val):
+    rmsp = optimizers.RMSprop(lr=0.001)
     nn.compile(loss='categorical_crossentropy',
-                  optimizer='adam',
+                  optimizer=rmsp,
                   metrics=['accuracy'])
-    nn.fit(X, y, batch_size=batch_size, epochs=epochs)
+    nn.fit(X, y, batch_size=batch_size, epochs=epochs, validation_split=val)
 
 def generate(word_values, network, length):
     keys = list(word_values.keys())
@@ -112,6 +115,8 @@ def generate(word_values, network, length):
         pred = pred.astype(float)
         pred /= pred.sum()
         word_number = np.argmax(np.random.multinomial(1, pred, size=1))+1
+        while word_number == last_word:
+            word_number = np.argmax(np.random.multinomial(1, pred, size=1))+1
         rap.append(keys[number_to_word.index(word_number)])
         current_length += 1
     return rap
@@ -120,8 +125,9 @@ X, y, class_size, word_dict = convert_word2word('lyrics.txt')
 X = np.asarray(X, dtype=object)
 rnn = recurrent_nn(class_size, X)
 
-batch_size = 1
-epochs = 150
-train_model(rnn, X, y, batch_size, epochs)
+batch_size = 32
+epochs = 175
+validation=0.25
+train_model(rnn, X, y, batch_size, epochs, validation)
 
 print(generate(word_dict, rnn, 100))
