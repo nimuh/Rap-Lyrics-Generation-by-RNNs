@@ -87,7 +87,7 @@ def recurrent_nn(vocab_size, X):
     model = Sequential()
     model.add(Masking(mask_value=0., input_shape=(None, 1)))
     model.add(LSTM(200, return_sequences=True))
-    model.add(Dropout(0.1))
+    #model.add(Dropout(0.1))
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
     return model
@@ -125,9 +125,9 @@ X, y, class_size, word_dict = convert_word2word('lyrics.txt')
 X = np.asarray(X, dtype=object)
 rnn = recurrent_nn(class_size, X)
 
-batch_size = 32
+batch_size = 16
 epochs = 175
-validation=0.25
+validation=0.14
 train_model(rnn, X, y, batch_size, epochs, validation)
 
 print(generate(word_dict, rnn, 100))
