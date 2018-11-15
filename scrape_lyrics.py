@@ -44,30 +44,26 @@ songs by these artists and scrapes the lyrics of songs found. All lyrics
 are saved to one file.
 """
 def get_lyrics(all_lyrics, out_filename, number_of_songs):
-    #with open(list_of_rappers) as f:
-        #file_content = f.readlines()
-    #file_content = [name.strip() for name in file_content]
     lyrics = pandas.read_csv(all_lyrics)
-    rap_lyrics = lyrics.loc[lyrics['genre'] == 'Hip-Hop']
-    rap_lyrics = rap_lyrics['lyrics'].dropna()
-    rap_lyrics = np.asarray(rap_lyrics)
+    eminem_rap_lyrics = lyrics.loc[lyrics['artist'] == 'Eminem']
+    eminem_rap_lyrics = eminem_rap_lyrics.dropna()
+    eminem_rap_lyrics = eminem_rap_lyrics['text']
+    eminem_rap_lyrics = np.asarray(eminem_rap_lyrics)
     file = open(out_filename, 'w')
-    #for rapper in file_content:
-        #artist = api.search_artist(rapper, max_songs=nu_songs, get_full_song_info=False)
+
     song_nu = 0
-    for song in rap_lyrics:
-        song_nu += 1
+    for song in eminem_rap_lyrics:
         if song_nu == number_of_songs:
             break
-        #doc = artist.songs[s].lyrics
         current_song = clean_lyrics(song)
         current_song = current_song.split('\n')
         file.write('[startss]' +'\n')
         for word in range(len(current_song)):
             file.write(current_song[word]+'\n')
         file.write('[endss]'+'\n')
+        song_nu += 1
         print('Song ', song_nu)
     file.close()
 
 
-get_lyrics('lyrics.csv', 'lyrics.txt', 100)
+get_lyrics('songdata.csv', 'lyrics.txt', 1)
