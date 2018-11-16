@@ -102,7 +102,11 @@ recurrent_nn defines the network architecture:
 """
 def recurrent_nn(vocab_size, X, window_size):
     model = Sequential()
-    model.add(LSTM(128, input_shape=(window_size, 1)))
+    model.add(Dense(200, input_shape=(window_size, 1), activation='relu'))
+    model.add(LSTM(128, return_sequences=True))
+    model.add(LSTM(64, return_sequences=True))
+    model.add(LSTM(32))
+    model.add(Dense(200, activation='relu'))
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
     return model
@@ -112,7 +116,7 @@ train_model compiles and trains the rnn model obtained from recurrent_nn. Uses
 RMSprop as optimizer.
 """
 def train_model(nn, X, y, batch_size, epochs, val):
-    rmsp = optimizers.RMSprop(lr=0.01, decay=1e-7)
+    rmsp = optimizers.RMSprop(lr=0.01)
     nn.compile(loss='categorical_crossentropy',
                   optimizer=rmsp,
                   metrics=['accuracy'])
@@ -143,8 +147,8 @@ print(X.shape)
 print(y.shape)
 rnn = recurrent_nn(class_size, X, window_size)
 
-batch_size = 256
-epochs = 10000
+batch_size = 128
+epochs = 250
 validation=0.0
 train_model(rnn, X, y, batch_size, epochs, validation)
 
