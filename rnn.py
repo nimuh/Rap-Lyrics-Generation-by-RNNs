@@ -116,7 +116,7 @@ train_model compiles and trains the rnn model obtained from recurrent_nn. Uses
 RMSprop as optimizer.
 """
 def train_model(nn, X, y, batch_size, epochs, val):
-    rmsp = optimizers.RMSprop(lr=0.01)
+    rmsp = optimizers.RMSprop(lr=0.001)
     nn.compile(loss='categorical_crossentropy',
                   optimizer=rmsp,
                   metrics=['accuracy'])

@@ -66,4 +66,4 @@ def get_lyrics(all_lyrics, out_filename, number_of_songs):
     file.close()
 
 
-get_lyrics('songdata.csv', 'lyrics.txt', 1)
+get_lyrics('songdata.csv', 'lyrics.txt', 10)
