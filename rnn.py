@@ -6,15 +6,13 @@ from keras.preprocessing.text import Tokenizer, text_to_word_sequence
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout
+from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout, BatchNormalization
 from keras.layers.embeddings import Embedding
 
 def categorical(targets, size, padding_length):
     categorized = []
     for target in targets:
         song_outputs = to_categorical(target, num_classes=size)
-        #song_outputs = pad_sequences(song_outputs.T, maxlen=padding_length, padding='post')
-        #song_outputs = song_outputs.T
         categorized.append(song_outputs)
     return np.asarray(categorized)
 
@@ -47,49 +45,20 @@ def convert_word2word(lyrics, window_size):
     # use tokenizer to get integer representation of words of song
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(doc)
-    input_data, targets = split_by_song(text_to_word_sequence(text))
-    #input_data = text_to_word_sequence(text)
-    #print(input_data)
+    input_data = text_to_word_sequence(text)
     inputs = []
     outputs = []
 
-    max = 0
-    for songs in input_data:
-        if len(songs) > max: max = (len(songs)-1)
+    lyrics_as_index = [tokenizer.word_index[words] for words in input_data]
 
-    for songs in input_data:
-        #print(songs)
-        song = [tokenizer.word_index[words] for words in songs]
-        #song = song[:len(song)-1]
-        #print(song)
-
-        for i in range(len(song)-window_size):
-            inputs.append(song[i:i+window_size])
-            outputs.append(song[i+window_size])
-        #for i in range(len(song)-(window_size-1)):
-        #inputs.append(input_data[songs:songs+window_size])
-        #outputs.append(input_data[songs+(window_size)])
-        #inputs.append(song)
-
-    #for i in range(len(inputs)):
-        #print(inputs[i])
-        #print(outputs[i])
-    #for songs in targets:
-        #song = [tokenizer.word_index[words] for words in songs]
-        #song = song[1:len(song)]
-        #outputs.append(song)
+    for i in range(len(lyrics_as_index)-window_size):
+        inputs.append(lyrics_as_index[i:i+window_size])
+        outputs.append(lyrics_as_index[i+window_size])
 
     class_size = len(tokenizer.word_index)+1
-    #print(outputs)
-    #outputs = [tokenizer.word_index[words] for words in outputs]
     outputs = categorical(outputs, class_size, max)
-    #outputs = outputs.reshape(outputs.shape[0], outputs.shape[1])
-
-    #inputs = pad_sequences(inputs, maxlen=max, padding='post')
     inputs = np.asarray(inputs)
     inputs = inputs.reshape(inputs.shape[0], window_size, 1)
-    #print(inputs)
-    #print(inputs.shape)
 
     return inputs, outputs, class_size, tokenizer.word_index
 
@@ -103,10 +72,15 @@ recurrent_nn defines the network architecture:
 def recurrent_nn(vocab_size, X, window_size):
     model = Sequential()
     model.add(Dense(200, input_shape=(window_size, 1), activation='relu'))
-    model.add(LSTM(128, return_sequences=True))
-    model.add(LSTM(64, return_sequences=True))
-    model.add(LSTM(32))
+    model.add(LSTM(128, use_bias=True, unit_forget_bias=True, return_sequences=True))
+    model.add(LSTM(128, use_bias=True, unit_forget_bias=True, return_sequences=True))
+    model.add(LSTM(128, use_bias=True, unit_forget_bias=True))
     model.add(Dense(200, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dense(300, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dense(400, activation='relu'))
+    model.add(BatchNormalization())
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
     return model
@@ -147,8 +121,8 @@ print(X.shape)
 print(y.shape)
 rnn = recurrent_nn(class_size, X, window_size)
 
-batch_size = 128
-epochs = 250
+batch_size = 256
+epochs = 200
 validation=0.0
 train_model(rnn, X, y, batch_size, epochs, validation)
 
