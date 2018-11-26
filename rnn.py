@@ -1,5 +1,6 @@
 
 import keras
+import re
 import numpy as np
 from keras import optimizers
 from keras.preprocessing.text import Tokenizer, text_to_word_sequence
@@ -9,54 +10,79 @@ from keras.models import Sequential, Model
 from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout, BatchNormalization
 from keras.layers.embeddings import Embedding
 
-def categorical(targets, size, padding_length):
+def categorical(targets, size):
     categorized = []
     for target in targets:
         song_outputs = to_categorical(target, num_classes=size)
         categorized.append(song_outputs)
     return np.asarray(categorized)
 
-def split_by_song(tokenized_lyrics):
-    songs = []
-    song_targets = []
-    one_song = []
-    one_song.append(tokenized_lyrics[0])
-    song_nu = 0
-    for i in range(1, len(tokenized_lyrics)):
-        if tokenized_lyrics[i] == 'endss':
-            one_song.append(tokenized_lyrics[i])
-            songs.append(one_song[:len(one_song)]) # removed -1
-            song_targets.append(one_song[1:len(one_song)])
-            one_song = []
-        else:
-            one_song.append(tokenized_lyrics[i])
-    return songs, song_targets
+def clean_lyrics(doc):
+    for word in doc:
+        doc = re.sub("'", "", doc)
+        doc = re.sub("0|1|2|3|4|5|6|7|8|9", "", doc)
+        doc = re.sub("Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine",
+                     "", doc)
+        doc = doc.replace('?', '')
+        doc = doc.replace('!', '')
+        doc = doc.replace('[', '')
+        doc = doc.replace(']', '')
+        doc = doc.replace('(', '')
+        doc = doc.replace(')', '')
+        doc = doc.replace(":", "")
+        doc = doc.replace("...", "")
+        doc = doc.replace("-", "")
+        doc = doc.replace(",", "")
+        doc = doc.replace("X", "")
+        doc = doc.replace("Marshall", "")
+        doc = doc.replace("Eminem", "")
+        doc = doc.replace("Dr. Dre", "")
+        doc = doc.replace("Joe Beast", "")
+        doc = doc.replace('Verse', '')
+        doc = doc.replace('Chorus x', '')
+        doc = doc.replace("Chorus", '')
+        #doc = doc.replace('Outro', '')
+        doc = doc.replace('Intro', '')
+        #doc = doc.replace('Hook', '')
+        #doc = doc.replace('Bridge', '')
+        #doc = doc.replace('Interlude', '')
+    return doc
 """
 convert_word2word takes the scraped lyrics and converts it into input and target
 data for recurrent neural network.
 """
-def convert_word2word(lyrics, window_size):
+def convert_word2word(lyrics, window_size, model_level):
 
     # read scraped lyrics and split into lines
     file = open(lyrics, 'r')
     text = file.read()
-    doc = text.split('\n')
+    if model_level == 'char':
+        doc = list(text)
+        tokenizer = Tokenizer()
+        tokenizer.fit_on_texts(doc)
+        tokenizer.word_index[' '] = 40
+        tokenizer.word_index['\n'] = 41
+        lyrics_as_index = [tokenizer.word_index[c] for c in doc]
+    else:
+        doc = text.split('\n')
+        tokenizer = Tokenizer()
+        tokenizer.fit_on_texts(doc)
+        input_data = text_to_word_sequence(text)
+        lyrics_as_index = [tokenizer.word_index[word] for word in input_data]
 
     # use tokenizer to get integer representation of words of song
-    tokenizer = Tokenizer()
-    tokenizer.fit_on_texts(doc)
     input_data = text_to_word_sequence(text)
     inputs = []
     outputs = []
 
-    lyrics_as_index = [tokenizer.word_index[words] for words in input_data]
+    #lyrics_as_index = [tokenizer.word_index[words] for words in input_data]
 
     for i in range(len(lyrics_as_index)-window_size):
         inputs.append(lyrics_as_index[i:i+window_size])
         outputs.append(lyrics_as_index[i+window_size])
 
     class_size = len(tokenizer.word_index)+1
-    outputs = categorical(outputs, class_size, max)
+    outputs = categorical(outputs, class_size)
     inputs = np.asarray(inputs)
     inputs = inputs.reshape(inputs.shape[0], window_size, 1)
 
@@ -72,6 +98,7 @@ recurrent_nn defines the network architecture:
 def recurrent_nn(vocab_size, X, window_size):
     model = Sequential()
     model.add(Dense(200, input_shape=(window_size, 1), activation='relu'))
+    model.add(BatchNormalization())
     model.add(LSTM(128, use_bias=True, unit_forget_bias=True, return_sequences=True))
     model.add(LSTM(128, use_bias=True, unit_forget_bias=True, return_sequences=True))
     model.add(LSTM(128, use_bias=True, unit_forget_bias=True))
@@ -115,7 +142,7 @@ def generate(word_values, network, length, window_size):
     return rap
 
 window_size = 5
-X, y, class_size, word_dict = convert_word2word('lyrics.txt', window_size)
+X, y, class_size, word_dict = convert_word2word('lyrics.txt', window_size, model_level='word')
 X = np.asarray(X, dtype=object)
 print(X.shape)
 print(y.shape)
