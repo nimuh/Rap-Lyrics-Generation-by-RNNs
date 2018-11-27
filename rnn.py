@@ -1,14 +1,17 @@
-
+import matplotlib.pyplot as plt
 import keras
-import re
 import numpy as np
 from keras import optimizers
+from keras.callbacks import ModelCheckpoint
+from keras import regularizers
 from keras.preprocessing.text import Tokenizer, text_to_word_sequence
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
 from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout, BatchNormalization
 from keras.layers.embeddings import Embedding
+from keras import backend as K
+from tensorflow.python.client import device_lib
 
 def categorical(targets, size):
     categorized = []
@@ -17,46 +20,18 @@ def categorical(targets, size):
         categorized.append(song_outputs)
     return np.asarray(categorized)
 
-def clean_lyrics(doc):
-    for word in doc:
-        doc = re.sub("'", "", doc)
-        doc = re.sub("0|1|2|3|4|5|6|7|8|9", "", doc)
-        doc = re.sub("Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine",
-                     "", doc)
-        doc = doc.replace('?', '')
-        doc = doc.replace('!', '')
-        doc = doc.replace('[', '')
-        doc = doc.replace(']', '')
-        doc = doc.replace('(', '')
-        doc = doc.replace(')', '')
-        doc = doc.replace(":", "")
-        doc = doc.replace("...", "")
-        doc = doc.replace("-", "")
-        doc = doc.replace(",", "")
-        doc = doc.replace("X", "")
-        doc = doc.replace("Marshall", "")
-        doc = doc.replace("Eminem", "")
-        doc = doc.replace("Dr. Dre", "")
-        doc = doc.replace("Joe Beast", "")
-        doc = doc.replace('Verse', '')
-        doc = doc.replace('Chorus x', '')
-        doc = doc.replace("Chorus", '')
-        #doc = doc.replace('Outro', '')
-        doc = doc.replace('Intro', '')
-        #doc = doc.replace('Hook', '')
-        #doc = doc.replace('Bridge', '')
-        #doc = doc.replace('Interlude', '')
-    return doc
 """
 convert_word2word takes the scraped lyrics and converts it into input and target
 data for recurrent neural network.
 """
-def convert_word2word(lyrics, window_size, model_level):
+def convert_word2word(lyrics, model_level):
 
     # read scraped lyrics and split into lines
     file = open(lyrics, 'r')
     text = file.read()
+    window_size = 5
     if model_level == 'char':
+        window_size = 10
         doc = list(text)
         tokenizer = Tokenizer()
         tokenizer.fit_on_texts(doc)
@@ -71,11 +46,8 @@ def convert_word2word(lyrics, window_size, model_level):
         lyrics_as_index = [tokenizer.word_index[word] for word in input_data]
 
     # use tokenizer to get integer representation of words of song
-    input_data = text_to_word_sequence(text)
     inputs = []
     outputs = []
-
-    #lyrics_as_index = [tokenizer.word_index[words] for words in input_data]
 
     for i in range(len(lyrics_as_index)-window_size):
         inputs.append(lyrics_as_index[i:i+window_size])
@@ -86,7 +58,7 @@ def convert_word2word(lyrics, window_size, model_level):
     inputs = np.asarray(inputs)
     inputs = inputs.reshape(inputs.shape[0], window_size, 1)
 
-    return inputs, outputs, class_size, tokenizer.word_index
+    return inputs, outputs, class_size, tokenizer.word_index, window_size
 
 
 """
@@ -97,16 +69,29 @@ recurrent_nn defines the network architecture:
 """
 def recurrent_nn(vocab_size, X, window_size):
     model = Sequential()
-    model.add(Dense(200, input_shape=(window_size, 1), activation='relu'))
+    #reg = regularizers.l1(0.01)
+    model.add(Dense(100, input_shape=(window_size, 1), activation='relu'))
     model.add(BatchNormalization())
-    model.add(LSTM(128, use_bias=True, unit_forget_bias=True, return_sequences=True))
-    model.add(LSTM(128, use_bias=True, unit_forget_bias=True, return_sequences=True))
-    model.add(LSTM(128, use_bias=True, unit_forget_bias=True))
     model.add(Dense(200, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(LSTM(100, use_bias=True, unit_forget_bias=True,
+                                       #kernel_regularizer=reg,
+                                       return_sequences=True))
+    model.add(LSTM(100, use_bias=True, unit_forget_bias=True,
+                                       #kernel_regularizer=reg,
+                                       return_sequences=True))
+    model.add(LSTM(100, use_bias=True, unit_forget_bias=True, 
+                                       #kernel_regularizer=reg,
+                                       return_sequences=True))
+    model.add(LSTM(100, use_bias=True, unit_forget_bias=True,
+                                       #kernel_regularizer=reg,
+                                       return_sequences=True))
+    model.add(LSTM(100, use_bias=True, unit_forget_bias=True)) #kernel_regularizer=reg))
+    model.add(Dense(100, activation='relu'))
     model.add(BatchNormalization())
     model.add(Dense(300, activation='relu'))
     model.add(BatchNormalization())
-    model.add(Dense(400, activation='relu'))
+    model.add(Dense(500, activation='relu'))
     model.add(BatchNormalization())
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
@@ -118,16 +103,43 @@ RMSprop as optimizer.
 """
 def train_model(nn, X, y, batch_size, epochs, val):
     rmsp = optimizers.RMSprop(lr=0.001)
+    adam = optimizers.Adam(lr=0.001)
     nn.compile(loss='categorical_crossentropy',
                   optimizer=rmsp,
                   metrics=['accuracy'])
-    nn.fit(X, y, batch_size=batch_size, epochs=epochs, validation_split=val)
-    nn.save('rap_lstm.h5')
+    checkpoints = ModelCheckpoint("weights.{epoch:02d}-{val_loss:.2f}.hdf5",
+                                  monitor='val_loss',
+                                  period=50)
+    history = nn.fit(X, y, batch_size=batch_size, epochs=epochs, callbacks=[checkpoints], validation_split=val)
+    # summarize history for accuracy
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    fig = plt.figure()
+    fig = fig.savefig('acc.png')
+    # summarize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    fig = plt.figure()
+    fig = fig.savefig('loss.png')
 
-def generate(word_values, network, length, window_size):
+    nn.save('trained_model.h5')
+
+def generate(word_values, network, length, model_level):
     keys = list(word_values.keys())
     number_to_word = list(word_values.values())
-    rap = ['startss', 'too', 'late', 'for', 'me']
+    rap = []
+    if model_level == 'char':
+        rap = ['t', 'o', 'o', ' ', 'l']
+    else:
+        rap = ['too', 'late', 'for', 'me']
     current_length = window_size
     while current_length < length:
         current_rap = [word_values.get(key) for key in rap]
@@ -141,16 +153,12 @@ def generate(word_values, network, length, window_size):
         current_length += 1
     return rap
 
-window_size = 5
-X, y, class_size, word_dict = convert_word2word('lyrics.txt', window_size, model_level='word')
+X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt', model_level='char')
 X = np.asarray(X, dtype=object)
-print(X.shape)
-print(y.shape)
 rnn = recurrent_nn(class_size, X, window_size)
 
-batch_size = 256
+batch_size = 24000
 epochs = 200
-validation=0.0
+validation=0.33
 train_model(rnn, X, y, batch_size, epochs, validation)
 
-print(generate(word_dict, rnn, 200, window_size))
