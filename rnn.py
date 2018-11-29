@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import gc
 import keras
 import numpy as np
 from keras import optimizers
@@ -12,6 +13,7 @@ from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout, BatchNor
 from keras.layers.embeddings import Embedding
 from keras import backend as K
 from tensorflow.python.client import device_lib
+gc.enable()
 
 def categorical(targets, size):
     categorized = []
@@ -69,30 +71,38 @@ recurrent_nn defines the network architecture:
 """
 def recurrent_nn(vocab_size, X, window_size):
     model = Sequential()
-    #reg = regularizers.l1(0.01)
     model.add(Dense(100, input_shape=(window_size, 1), activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Dense(200, activation='relu'))
-    model.add(BatchNormalization())
-    model.add(LSTM(100, use_bias=True, unit_forget_bias=True,
-                                       #kernel_regularizer=reg,
-                                       return_sequences=True))
-    model.add(LSTM(100, use_bias=True, unit_forget_bias=True,
-                                       #kernel_regularizer=reg,
-                                       return_sequences=True))
-    model.add(LSTM(100, use_bias=True, unit_forget_bias=True, 
-                                       #kernel_regularizer=reg,
-                                       return_sequences=True))
-    model.add(LSTM(100, use_bias=True, unit_forget_bias=True,
-                                       #kernel_regularizer=reg,
-                                       return_sequences=True))
-    model.add(LSTM(100, use_bias=True, unit_forget_bias=True)) #kernel_regularizer=reg))
-    model.add(Dense(100, activation='relu'))
     model.add(BatchNormalization())
     model.add(Dense(300, activation='relu'))
     model.add(BatchNormalization())
-    model.add(Dense(500, activation='relu'))
-    model.add(BatchNormalization())
+    model.add(Dense(5, activation='relu'))
+    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
+                                       bias_initializer='ones',
+                                       recurrent_dropout=0.2,
+                                       return_sequences=True))
+    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
+                                       bias_initializer='ones',
+                                       recurrent_dropout=0.2,
+                                       return_sequences=True))
+    model.add(LSTM(256, use_bias=True, unit_forget_bias=True, 
+                                       bias_initializer='ones',
+                                       recurrent_dropout=0.2,
+                                       return_sequences=True))
+    #model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
+     #                                  bias_initializer='ones',
+      #                                 recurrent_dropout=0.2,
+       #                                return_sequences=True))
+    #model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
+     #                                  bias_initializer='ones',
+      #                                 recurrent_dropout=0.2,
+       #                                return_sequences=True))
+   # model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
+    #                                   bias_initializer='ones',
+     #                                  recurrent_dropout=0.2,
+      #                                 return_sequences=True))
+    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,                                       
+                                       bias_initializer='ones',
+                                       recurrent_dropout=0.2))
     model.add(Dense(vocab_size, activation='softmax'))
     print(model.summary())
     return model
@@ -102,10 +112,9 @@ train_model compiles and trains the rnn model obtained from recurrent_nn. Uses
 RMSprop as optimizer.
 """
 def train_model(nn, X, y, batch_size, epochs, val):
-    rmsp = optimizers.RMSprop(lr=0.001)
-    adam = optimizers.Adam(lr=0.001)
+    adam = optimizers.Adam(lr=0.002)
     nn.compile(loss='categorical_crossentropy',
-                  optimizer=rmsp,
+                  optimizer=adam,
                   metrics=['accuracy'])
     checkpoints = ModelCheckpoint("weights.{epoch:02d}-{val_loss:.2f}.hdf5",
                                   monitor='val_loss',
@@ -131,6 +140,7 @@ def train_model(nn, X, y, batch_size, epochs, val):
     fig = fig.savefig('loss.png')
 
     nn.save('trained_model.h5')
+    del nn
 
 def generate(word_values, network, length, model_level):
     keys = list(word_values.keys())
@@ -153,12 +163,13 @@ def generate(word_values, network, length, model_level):
         current_length += 1
     return rap
 
+gc.collect()
 X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt', model_level='char')
 X = np.asarray(X, dtype=object)
 rnn = recurrent_nn(class_size, X, window_size)
 
-batch_size = 24000
+batch_size = 25000
 epochs = 200
-validation=0.33
+validation=0.30
 train_model(rnn, X, y, batch_size, epochs, validation)
-
+gc.collect()
