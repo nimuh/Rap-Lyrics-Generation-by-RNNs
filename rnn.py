@@ -33,7 +33,7 @@ def convert_word2word(lyrics, model_level):
     text = file.read()
     window_size = 5
     if model_level == 'char':
-        window_size = 10
+        window_size = 20
         doc = list(text)
         tokenizer = Tokenizer()
         tokenizer.fit_on_texts(doc)
@@ -75,7 +75,8 @@ def recurrent_nn(vocab_size, X, window_size):
     model.add(BatchNormalization())
     model.add(Dense(300, activation='relu'))
     model.add(BatchNormalization())
-    model.add(Dense(5, activation='relu'))
+    model.add(Dense(20, activation='relu'))
+    model.add(BatchNormalization())
     model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
                                        bias_initializer='ones',
                                        recurrent_dropout=0.2,
@@ -88,18 +89,6 @@ def recurrent_nn(vocab_size, X, window_size):
                                        bias_initializer='ones',
                                        recurrent_dropout=0.2,
                                        return_sequences=True))
-    #model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-     #                                  bias_initializer='ones',
-      #                                 recurrent_dropout=0.2,
-       #                                return_sequences=True))
-    #model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-     #                                  bias_initializer='ones',
-      #                                 recurrent_dropout=0.2,
-       #                                return_sequences=True))
-   # model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-    #                                   bias_initializer='ones',
-     #                                  recurrent_dropout=0.2,
-      #                                 return_sequences=True))
     model.add(LSTM(256, use_bias=True, unit_forget_bias=True,                                       
                                        bias_initializer='ones',
                                        recurrent_dropout=0.2))
@@ -112,7 +101,7 @@ train_model compiles and trains the rnn model obtained from recurrent_nn. Uses
 RMSprop as optimizer.
 """
 def train_model(nn, X, y, batch_size, epochs, val):
-    adam = optimizers.Adam(lr=0.002)
+    adam = optimizers.Adam()
     nn.compile(loss='categorical_crossentropy',
                   optimizer=adam,
                   metrics=['accuracy'])
@@ -168,8 +157,8 @@ X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt', model
 X = np.asarray(X, dtype=object)
 rnn = recurrent_nn(class_size, X, window_size)
 
-batch_size = 25000
-epochs = 200
-validation=0.30
+batch_size = 12000
+epochs = 75
+validation=0.50
 train_model(rnn, X, y, batch_size, epochs, validation)
 gc.collect()
