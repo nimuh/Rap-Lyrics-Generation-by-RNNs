@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pickle
 import gc
 import keras
 import numpy as np
@@ -109,25 +110,10 @@ def train_model(nn, X, y, batch_size, epochs, val):
                                   monitor='val_loss',
                                   period=50)
     history = nn.fit(X, y, batch_size=batch_size, epochs=epochs, callbacks=[checkpoints], validation_split=val)
-    # summarize history for accuracy
-    plt.plot(history.history['acc'])
-    plt.plot(history.history['val_acc'])
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    fig = plt.figure()
-    fig = fig.savefig('acc.png')
-    # summarize history for loss
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    fig = plt.figure()
-    fig = fig.savefig('loss.png')
-
+    
+    f = open('history.pckl', 'wb')
+    pickle.dump(history.history, f)
+    f.close()
     nn.save('trained_model.h5')
     del nn
 
