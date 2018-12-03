@@ -1,19 +1,14 @@
-import matplotlib.pyplot as plt
 import pickle
 import gc
 import keras
 import numpy as np
 from keras import optimizers
 from keras.callbacks import ModelCheckpoint
-from keras import regularizers
 from keras.preprocessing.text import Tokenizer, text_to_word_sequence
-from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense, Flatten, Input, Masking, Dropout, BatchNormalization
-from keras.layers.embeddings import Embedding
-from keras import backend as K
-from tensorflow.python.client import device_lib
+from keras.layers import LSTM, Dense, BatchNormalization
+
 gc.enable()
 
 def categorical(targets, size):
@@ -26,6 +21,7 @@ def categorical(targets, size):
 """
 convert_word2word takes the scraped lyrics and converts it into input and target
 data for recurrent neural network.
+
 """
 def convert_word2word(lyrics, model_level):
 
@@ -64,13 +60,25 @@ def convert_word2word(lyrics, model_level):
     return inputs, outputs, class_size, tokenizer.word_index, window_size
 
 
-"""
-recurrent_nn defines the network architecture:
-1 Masking layer (skips padded areas due to variable sequence lengths)
-1 LSTM layer
-1 Dense layer (softmax output equal to number of unique words)
-"""
-def recurrent_nn(vocab_size, X, window_size):
+def recurrent_nn(vocab_size, window_size):
+
+    """
+    # Arguments:
+        - vocab_size: Number of unique characters. Used as # of output units.
+        - window_size: input sequence length
+    # Returns:
+        - A sequential Keras model with the following architecture:
+            recurrent_nn defines the network architecture:
+            Dense Layer: 100, ReLU
+            Dense Layer: 300, ReLU
+            Dense Layer: 20,  ReLU
+            LSTM Layer:  256
+            LSTM Layer:  256
+            LSTM Layer:  256
+            LSTM Layer:  256
+            Dense Layer: vocab_size, softmax
+    """
+
     model = Sequential()
     model.add(Dense(100, input_shape=(window_size, 1), activation='relu'))
     model.add(BatchNormalization())
@@ -97,11 +105,21 @@ def recurrent_nn(vocab_size, X, window_size):
     print(model.summary())
     return model
 
-"""
-train_model compiles and trains the rnn model obtained from recurrent_nn. Uses
-RMSprop as optimizer.
-"""
+
 def train_model(nn, X, y, batch_size, epochs, val):
+    """
+    Compiles and trains the model nn on X and y. Uses Adam as optimizer. All
+    training history (accuracy, loss, etc) stored in history.pckl.
+
+    # Arguments:
+        - nn: keras neural network model
+        - X:          input data
+        - y:          corresponding ouputs for X
+        - batch_size: size of batches for training
+        - epochs:     number of training iterations over X
+        - val:        float between 0 and 1. Percentage of data used
+                      for validation
+    """
     adam = optimizers.Adam()
     nn.compile(loss='categorical_crossentropy',
                   optimizer=adam,
@@ -109,8 +127,13 @@ def train_model(nn, X, y, batch_size, epochs, val):
     checkpoints = ModelCheckpoint("weights.{epoch:02d}-{val_loss:.2f}.hdf5",
                                   monitor='val_loss',
                                   period=50)
-    history = nn.fit(X, y, batch_size=batch_size, epochs=epochs, callbacks=[checkpoints], validation_split=val)
-    
+    history = nn.fit(X,
+                     y,
+                     batch_size=batch_size,
+                     epochs=epochs,
+                     callbacks=[checkpoints],
+                     validation_split=val)
+
     f = open('history.pckl', 'wb')
     pickle.dump(history.history, f)
     f.close()
@@ -138,13 +161,14 @@ def generate(word_values, network, length, model_level):
         current_length += 1
     return rap
 
-gc.collect()
-X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt', model_level='char')
+"""
+#################################### TRAINING #################################
+"""
+X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt',
+                                                             model_level='char')
 X = np.asarray(X, dtype=object)
-rnn = recurrent_nn(class_size, X, window_size)
-
+rnn = recurrent_nn(class_size, window_size)
 batch_size = 12000
 epochs = 75
 validation=0.50
 train_model(rnn, X, y, batch_size, epochs, validation)
-gc.collect()
