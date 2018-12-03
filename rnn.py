@@ -148,6 +148,4 @@ epochs = 75
 validation=0.50
 train_model(rnn, X, y, batch_size, epochs, validation)
 
-#rap_bot = keras.models.load_model('trained_model.h5')
-#print(generate(word_dict, rap_bot, 50, model_level='char'))
 gc.collect()
