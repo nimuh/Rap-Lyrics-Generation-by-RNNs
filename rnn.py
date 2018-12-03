@@ -147,5 +147,4 @@ batch_size = 12000
 epochs = 75
 validation=0.50
 train_model(rnn, X, y, batch_size, epochs, validation)
-
 gc.collect()
