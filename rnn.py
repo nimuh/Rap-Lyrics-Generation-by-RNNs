@@ -85,11 +85,11 @@ def recurrent_nn(vocab_size, X, window_size):
                                        bias_initializer='ones',
                                        recurrent_dropout=0.2,
                                        return_sequences=True))
-    model.add(LSTM(256, use_bias=True, unit_forget_bias=True, 
+    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
                                        bias_initializer='ones',
                                        recurrent_dropout=0.2,
                                        return_sequences=True))
-    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,                                       
+    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
                                        bias_initializer='ones',
                                        recurrent_dropout=0.2))
     model.add(Dense(vocab_size, activation='softmax'))
@@ -136,7 +136,7 @@ def generate(word_values, network, length, model_level):
     number_to_word = list(word_values.values())
     rap = []
     if model_level == 'char':
-        rap = ['t', 'o', 'o', ' ', 'l']
+        rap = ['t', 'o', 'o', ' ', 'l', 'a', 't', 'e', ' ', 'f']
     else:
         rap = ['too', 'late', 'for', 'me']
     current_length = window_size
@@ -161,4 +161,7 @@ batch_size = 12000
 epochs = 75
 validation=0.50
 train_model(rnn, X, y, batch_size, epochs, validation)
+
+#rap_bot = keras.models.load_model('trained_model.h5')
+#print(generate(word_dict, rap_bot, 50, model_level='char'))
 gc.collect()
