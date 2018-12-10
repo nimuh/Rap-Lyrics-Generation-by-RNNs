@@ -4,10 +4,15 @@ import csv
 import pandas
 import numpy as np
 
-"""
-clean_lyrics is used for removing tags from the lyrics.
-"""
+
 def clean_lyrics(doc):
+    """
+    Used for cleaning lyrics.
+
+    # Arguments:
+        - doc: The lyrics document to be cleaned.
+    """
+
     doc = re.sub("'", "", doc)
     doc = re.sub("0|1|2|3|4|5|6|7|8|9", "", doc)
     doc = re.sub("Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine",
@@ -47,12 +52,25 @@ def clean_lyrics(doc):
     return doc
 
 
-"""
-search_by_artists takes a list of rapper names and searches for
-songs by these artists and scrapes the lyrics of songs found. All lyrics
-are saved to one file.
-"""
 def get_lyrics(all_lyrics, out_filename, number_of_songs):
+
+    """
+    Uses lyrics data set to create lyrics document to generated input and output
+    sequences.
+
+    Artists:
+        - Eminem
+        - Rihanna
+        - Nicki Minaj
+        - Kanye West
+    # Arguments:
+        - all_lyrics: A CSV file containing lyrics from different artists.
+        - out_filename: The file that the chosen lyrics will be written to.
+        - number_of_songs: Number of Eminem songs to use. This was originally
+                           used to limit the size of the data I was working
+                           with. 70 is the maximum number of Eminem songs in
+                           all_lyrics.
+    """
     lyrics = pandas.read_csv(all_lyrics)
     eminem_rap_lyrics = lyrics.loc[lyrics['artist'] == 'Eminem']
     eminem_rap_lyrics = eminem_rap_lyrics.dropna()
@@ -103,5 +121,7 @@ def get_lyrics(all_lyrics, out_filename, number_of_songs):
 
     file.close()
 
-
+"""
+########################## GET LYRICS #########################################
+"""
 get_lyrics('songdata.csv', 'lyrics.txt', 70)

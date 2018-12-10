@@ -12,19 +12,42 @@ from keras.layers import LSTM, Dense, BatchNormalization
 gc.enable()
 
 def categorical(targets, size):
+    """
+    Takes the target values and converts to one-hot encodings.
+
+    # Arguments:
+        - targets: Target output data.
+        - size: The number of unique characters.
+    # Returns:
+        - numpy array of one-hot encodings of target data.
+    """
     categorized = []
     for target in targets:
         song_outputs = to_categorical(target, num_classes=size)
         categorized.append(song_outputs)
     return np.asarray(categorized)
 
-"""
-convert_word2word takes the scraped lyrics and converts it into input and target
-data for recurrent neural network.
 
-"""
 def convert_word2word(lyrics, model_level):
+    """
+    Takes the scraped lyrics and converts it into input and target
+    data.
 
+    # Arguments:
+        - lyrics: .txt file containing all lyrics
+        - model_level: defines the model level. If 'char' then the
+                       the input and targets generated are character
+                       sequences. If 'word' then the input and targets
+                       generated are sequences of words.
+    # Returns:
+        - inputs: The input data for the LSTM
+        - outputs: The corresponding outputs for each input for the LSTM
+        - class_size: The number of unique characters/words in lyrics
+        - tokenizer.word_index: The dictionary of all characters/words and
+                                their corresponding index.
+        - window_size: The length of the input sequences. This is used to
+                       define the input shape for the model.
+    """
     # read scraped lyrics and split into lines
     file = open(lyrics, 'r')
     text = file.read()
@@ -140,26 +163,6 @@ def train_model(nn, X, y, batch_size, epochs, val):
     nn.save('trained_model.h5')
     del nn
 
-def generate(word_values, network, length, model_level):
-    keys = list(word_values.keys())
-    number_to_word = list(word_values.values())
-    rap = []
-    if model_level == 'char':
-        rap = ['t', 'o', 'o', ' ', 'l', 'a', 't', 'e', ' ', 'f']
-    else:
-        rap = ['too', 'late', 'for', 'me']
-    current_length = window_size
-    while current_length < length:
-        current_rap = [word_values.get(key) for key in rap]
-        current_rap = current_rap[current_length-window_size:current_length]
-        pred = network.predict(np.asarray(current_rap).reshape(1, window_size, 1))
-        pred = pred.astype(float)
-        pred /= pred.sum()
-        word_number = np.argmax(pred[0])
-        word_number = np.argmax(np.random.multinomial(1, pred[0], size=1))
-        rap.append(keys[number_to_word.index(word_number)])
-        current_length += 1
-    return rap
 
 """
 #################################### TRAINING #################################
