@@ -83,6 +83,17 @@ def convert_word2word(lyrics, model_level):
     return inputs, outputs, class_size, tokenizer.word_index, window_size
 
 
+def data_gen(x, y, batch_size, vocab_size):
+
+    nu_samples = x.shape[0]
+
+    while True:
+        samples = np.random.randint(low=0, high=nu_samples, size=(batch_size,))
+        x_train = x[samples, ...]
+        y_train = y[samples, ...]
+
+    yield {'input': x_train}, {'output': y_train}
+
 def recurrent_nn(vocab_size, window_size):
 
     """
@@ -129,7 +140,7 @@ def recurrent_nn(vocab_size, window_size):
     return model
 
 
-def train_model(nn, X, y, batch_size, epochs, val):
+def train_model(nn, X, y, batch_size, epochs, val, gen_tr, gen_val):
     """
     Compiles and trains the model nn on X and y. Uses Adam as optimizer. All
     training history (accuracy, loss, etc) stored in history.pckl.
@@ -150,12 +161,11 @@ def train_model(nn, X, y, batch_size, epochs, val):
     checkpoints = ModelCheckpoint("weights.{epoch:02d}-{val_loss:.2f}.hdf5",
                                   monitor='val_loss',
                                   period=50)
-    history = nn.fit(X,
-                     y,
-                     batch_size=batch_size,
-                     epochs=epochs,
-                     callbacks=[checkpoints],
-                     validation_split=val)
+    history = nn.fit_generator(generator=gen_tr,
+                               steps_per_epoch=50000,
+                               epochs=epochs,
+                               callbacks=[checkpoints],
+                               validation_split=gen_val)
 
     f = open('history.pckl', 'wb')
     pickle.dump(history.history, f)
