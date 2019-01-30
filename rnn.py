@@ -7,9 +7,7 @@ from keras.callbacks import ModelCheckpoint
 from keras.preprocessing.text import Tokenizer, text_to_word_sequence
 from keras.utils import to_categorical
 from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense, BatchNormalization
-
-gc.enable()
+from keras.layers import LSTM, Dense, BatchNormalization, Input, Flatten
 
 def categorical(targets, size):
     """
@@ -53,7 +51,7 @@ def convert_word2word(lyrics, model_level):
     text = file.read()
     window_size = 5
     if model_level == 'char':
-        window_size = 20
+        window_size = 30
         doc = list(text)
         tokenizer = Tokenizer()
         tokenizer.fit_on_texts(doc)
@@ -77,6 +75,8 @@ def convert_word2word(lyrics, model_level):
 
     class_size = len(tokenizer.word_index)+1
     outputs = categorical(outputs, class_size)
+    #print("OUTPUTS")
+    #print(outputs.shape)
     inputs = np.asarray(inputs)
     inputs = inputs.reshape(inputs.shape[0], window_size, 1)
 
@@ -84,15 +84,26 @@ def convert_word2word(lyrics, model_level):
 
 
 def data_gen(x, y, batch_size, vocab_size):
+    """
+    Creates batches of data on the fly.
 
+    # Arguments:
+        - x: inputs
+        - y: outputs
+        - batch_size: Size of batches for input
+        - vocab_size: Number of unique members
+    # Returns:
+        - Data generator for creating batches.
+    """
     nu_samples = x.shape[0]
 
     while True:
-        samples = np.random.randint(low=0, high=nu_samples, size=(batch_size,))
-        x_train = x[samples, ...]
-        y_train = y[samples, ...]
 
-    yield {'input': x_train}, {'output': y_train}
+        samples = np.random.randint(low=0, high=nu_samples, size=(batch_size,))
+        x_train = x[samples]
+        y_train = y[samples]
+
+        yield {'input': x_train}, {'output': y_train}
 
 def recurrent_nn(vocab_size, window_size):
 
@@ -105,7 +116,7 @@ def recurrent_nn(vocab_size, window_size):
             recurrent_nn defines the network architecture:
             Dense Layer: 100, ReLU
             Dense Layer: 300, ReLU
-            Dense Layer: 20,  ReLU
+            Dense Layer: 30,  ReLU
             LSTM Layer:  256
             LSTM Layer:  256
             LSTM Layer:  256
@@ -113,46 +124,54 @@ def recurrent_nn(vocab_size, window_size):
             Dense Layer: vocab_size, softmax
     """
 
-    model = Sequential()
-    model.add(Dense(100, input_shape=(window_size, 1), activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Dense(300, activation='relu'))
-    model.add(BatchNormalization())
-    model.add(Dense(20, activation='relu'))
-    model.add(BatchNormalization())
-    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-                                       bias_initializer='ones',
-                                       recurrent_dropout=0.2,
-                                       return_sequences=True))
-    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-                                       bias_initializer='ones',
-                                       recurrent_dropout=0.2,
-                                       return_sequences=True))
-    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-                                       bias_initializer='ones',
-                                       recurrent_dropout=0.2,
-                                       return_sequences=True))
-    model.add(LSTM(256, use_bias=True, unit_forget_bias=True,
-                                       bias_initializer='ones',
-                                       recurrent_dropout=0.2))
-    model.add(Dense(vocab_size, activation='softmax'))
+    input = Input(shape=(window_size, 1), name='input')
+    dense1 = Dense(100, activation='relu')(input)
+    batchNorm1 = BatchNormalization()(dense1)
+    dense2 = Dense(300, activation='relu')(batchNorm1)
+    batchNorm2 = BatchNormalization()(dense2)
+    dense3 = Dense(30, activation='relu')(batchNorm2)
+
+    lstm1 = LSTM(256,
+                 use_bias=True,
+                 unit_forget_bias=True,
+                 bias_initializer='ones',
+                 recurrent_dropout=0.2,
+                 return_sequences=True)(dense3)
+    lstm2 = LSTM(256,
+                 use_bias=True,
+                 unit_forget_bias=True,
+                 bias_initializer='ones',
+                 recurrent_dropout=0.2,
+                 return_sequences=True)(lstm1)
+    lstm3 = LSTM(256,
+                 use_bias=True,
+                 unit_forget_bias=True,
+                 bias_initializer='ones',
+                 recurrent_dropout=0.2,
+                 return_sequences=True)(lstm2)
+    lstm4 = LSTM(256,
+                 use_bias=True,
+                 unit_forget_bias=True,
+                 bias_initializer='ones',
+                 recurrent_dropout=0.2,
+                 return_sequences=True)(lstm3)
+    flatten = Flatten()(lstm4)
+    output = Dense(vocab_size, activation='softmax', name='output')(flatten)
+
+    model = Model(inputs=[input], outputs=[output])
     print(model.summary())
     return model
 
 
-def train_model(nn, X, y, batch_size, epochs, val, gen_tr, gen_val):
+def train_model(nn, gen_tr, epochs):
     """
     Compiles and trains the model nn on X and y. Uses Adam as optimizer. All
     training history (accuracy, loss, etc) stored in history.pckl.
 
     # Arguments:
-        - nn: keras neural network model
-        - X:          input data
-        - y:          corresponding ouputs for X
-        - batch_size: size of batches for training
-        - epochs:     number of training iterations over X
-        - val:        float between 0 and 1. Percentage of data used
-                      for validation
+        - nn:     keras neural network model
+        - gen_tr: data generator for creating batches of training data
+        - epochs: number of training iterations over X
     """
     adam = optimizers.Adam()
     nn.compile(loss='categorical_crossentropy',
@@ -162,10 +181,9 @@ def train_model(nn, X, y, batch_size, epochs, val, gen_tr, gen_val):
                                   monitor='val_loss',
                                   period=50)
     history = nn.fit_generator(generator=gen_tr,
-                               steps_per_epoch=50000,
+                               steps_per_epoch=100,
                                epochs=epochs,
-                               callbacks=[checkpoints],
-                               validation_split=gen_val)
+                               callbacks=[])
 
     f = open('history.pckl', 'wb')
     pickle.dump(history.history, f)
@@ -182,6 +200,6 @@ X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt',
 X = np.asarray(X, dtype=object)
 rnn = recurrent_nn(class_size, window_size)
 batch_size = 12000
-epochs = 75
-validation=0.50
-train_model(rnn, X, y, batch_size, epochs, validation)
+epochs = 50
+gen_train = data_gen(X, y, batch_size, class_size)
+train_model(rnn, gen_train, epochs)
