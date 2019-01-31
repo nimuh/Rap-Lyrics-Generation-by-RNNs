@@ -130,33 +130,37 @@ def recurrent_nn(vocab_size, window_size):
     dense2 = Dense(300, activation='relu')(batchNorm1)
     batchNorm2 = BatchNormalization()(dense2)
     dense3 = Dense(30, activation='relu')(batchNorm2)
+    batchNorm3 = BatchNormalization()(dense3)
 
     lstm1 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 recurrent_dropout=0.2,
-                 return_sequences=True)(dense3)
+                 #recurrent_dropout=0.2,
+                 return_sequences=True)(batchNorm3)
+    batchNorm4 = BatchNormalization()(lstm1)
     lstm2 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 recurrent_dropout=0.2,
-                 return_sequences=True)(lstm1)
+                 #recurrent_dropout=0.2,
+                 return_sequences=True)(batchNorm4)
+    batchNorm5 = BatchNormalization()(lstm2)
     lstm3 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 recurrent_dropout=0.2,
-                 return_sequences=True)(lstm2)
+                 #recurrent_dropout=0.2,
+                 return_sequences=True)(batchNorm5)
+    batchNorm6 = BatchNormalization()(lstm3)
     lstm4 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 recurrent_dropout=0.2,
-                 return_sequences=True)(lstm3)
-    flatten = Flatten()(lstm4)
-    output = Dense(vocab_size, activation='softmax', name='output')(flatten)
+                 #recurrent_dropout=0.2,
+                 return_sequences=False)(batchNorm6)
+    batchNorm7 = BatchNormalization()(lstm4)
+    output = Dense(vocab_size, activation='softmax', name='output')(batchNorm7)
 
     model = Model(inputs=[input], outputs=[output])
     print(model.summary())
@@ -199,7 +203,7 @@ X, y, class_size, word_dict, window_size = convert_word2word('lyrics.txt',
                                                              model_level='char')
 X = np.asarray(X, dtype=object)
 rnn = recurrent_nn(class_size, window_size)
-batch_size = 12000
-epochs = 50
+batch_size = 800
+epochs = 100
 gen_train = data_gen(X, y, batch_size, class_size)
 train_model(rnn, gen_train, epochs)
