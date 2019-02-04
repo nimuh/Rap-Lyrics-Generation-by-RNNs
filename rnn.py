@@ -19,11 +19,12 @@ def categorical(targets, size):
     # Returns:
         - numpy array of one-hot encodings of target data.
     """
-    categorized = []
-    for target in targets:
-        song_outputs = to_categorical(target, num_classes=size)
-        categorized.append(song_outputs)
-    return np.asarray(categorized)
+    categorized = np.zeros((len(targets), size))
+    for i in range(len(targets)):
+        song_outputs = to_categorical(targets[i], num_classes=size)
+        for j in range(len(song_outputs)):
+            categorized[i][j] = song_outputs[j]
+    return categorized #np.asarray(categorized)
 
 
 def convert_word2word(lyrics, model_level):
@@ -57,17 +58,21 @@ def convert_word2word(lyrics, model_level):
         tokenizer.fit_on_texts(doc)
         tokenizer.word_index[' '] = 40
         tokenizer.word_index['\n'] = 41
+
+        # CONVERT TO NP ARRAY
         lyrics_as_index = [tokenizer.word_index[c] for c in doc]
     else:
         doc = text.split('\n')
         tokenizer = Tokenizer()
         tokenizer.fit_on_texts(doc)
         input_data = text_to_word_sequence(text)
+
+        # CONVERT TO NP ARRAY
         lyrics_as_index = [tokenizer.word_index[word] for word in input_data]
 
     # use tokenizer to get integer representation of words of song
-    inputs = []
-    outputs = []
+    inputs = [] # CONVERT TO NP ARRAY
+    outputs = [] # CONVERT TO NP ARRAY
 
     for i in range(len(lyrics_as_index)-window_size):
         inputs.append(lyrics_as_index[i:i+window_size])
@@ -75,8 +80,7 @@ def convert_word2word(lyrics, model_level):
 
     class_size = len(tokenizer.word_index)+1
     outputs = categorical(outputs, class_size)
-    #print("OUTPUTS")
-    #print(outputs.shape)
+
     inputs = np.asarray(inputs)
     inputs = inputs.reshape(inputs.shape[0], window_size, 1)
 
@@ -115,12 +119,33 @@ def recurrent_nn(vocab_size, window_size):
         - A sequential Keras model with the following architecture:
             recurrent_nn defines the network architecture:
             Dense Layer: 100, ReLU
+                    |
+                (Batch Norm)
+                    |
             Dense Layer: 300, ReLU
+                    |
+                (Batch Norm)
+                    |
             Dense Layer: 30,  ReLU
+                    |
+                (Batch Norm)
+                    |
             LSTM Layer:  256
+                    |
+                (Batch Norm)
+                    |
             LSTM Layer:  256
+                    |
+                (Batch Norm)
+                    |
             LSTM Layer:  256
+                    |
+                (Batch Norm)
+                    |
             LSTM Layer:  256
+                    |
+                (Batch Norm)
+                    |
             Dense Layer: vocab_size, softmax
     """
 
@@ -136,28 +161,24 @@ def recurrent_nn(vocab_size, window_size):
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 #recurrent_dropout=0.2,
                  return_sequences=True)(batchNorm3)
     batchNorm4 = BatchNormalization()(lstm1)
     lstm2 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 #recurrent_dropout=0.2,
                  return_sequences=True)(batchNorm4)
     batchNorm5 = BatchNormalization()(lstm2)
     lstm3 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 #recurrent_dropout=0.2,
                  return_sequences=True)(batchNorm5)
     batchNorm6 = BatchNormalization()(lstm3)
     lstm4 = LSTM(256,
                  use_bias=True,
                  unit_forget_bias=True,
                  bias_initializer='ones',
-                 #recurrent_dropout=0.2,
                  return_sequences=False)(batchNorm6)
     batchNorm7 = BatchNormalization()(lstm4)
     output = Dense(vocab_size, activation='softmax', name='output')(batchNorm7)
